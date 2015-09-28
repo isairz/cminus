@@ -8,9 +8,9 @@
 #include "globals.h"
 
 /* set NO_PARSE to TRUE to get a scanner-only compiler */
-#define NO_PARSE FALSE
+#define NO_PARSE TRUE
 /* set NO_ANALYZE to TRUE to get a parser-only compiler */
-#define NO_ANALYZE FALSE
+#define NO_ANALYZE TRUE
 
 /* set NO_CODE to TRUE to get a compiler that does not
  * generate code
@@ -38,7 +38,7 @@ FILE * code;
 
 /* allocate and set tracing flags */
 int EchoSource = FALSE;
-int TraceScan = FALSE;
+int TraceScan = TRUE;
 int TraceParse = FALSE;
 int TraceAnalyze = FALSE;
 int TraceCode = FALSE;
@@ -54,7 +54,7 @@ main( int argc, char * argv[] )
     }
   strcpy(pgm,argv[1]) ;
   if (strchr (pgm, '.') == NULL)
-     strcat(pgm,".tny");
+     strcat(pgm,".cm");
   source = fopen(pgm,"r");
   if (source==NULL)
   { fprintf(stderr,"File %s not found\n",pgm);
