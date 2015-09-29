@@ -1,8 +1,9 @@
 #
-# Makefile for TINY
+# Makefile for C-Minus
 # Gnu C Version
 # K. Louden 2/3/98
 #
+# Modified by Seongjun Kim, 2015
 
 CC = gcc
 
@@ -10,8 +11,8 @@ CFLAGS =
 
 OBJS = main.o util.o scan.o parse.o symtab.o analyze.o code.o cgen.o
 
-tiny: $(OBJS)
-	$(CC) $(CFLAGS) $(OBJS) -o tiny
+cminus: $(OBJS)
+	$(CC) $(CFLAGS) $(OBJS) -o cminus
 
 main.o: main.c globals.h util.h scan.h parse.h analyze.h cgen.h
 	$(CC) $(CFLAGS) -c main.c
@@ -45,7 +46,7 @@ lex.yy.o: cminus.l scan.h util.h globals.h
 	$(CC) $(CFLAGS) -c lex.yy.c
 
 clean:
-	-rm tiny
+	-rm cminus
 	-rm tm
 	-rm cminus_flex
 	-rm lex.yy.c
@@ -55,5 +56,5 @@ clean:
 tm: tm.c
 	$(CC) $(CFLAGS) tm.c -o tm
 
-all: tiny tm
+all: cminus cminus_flex tm
 
