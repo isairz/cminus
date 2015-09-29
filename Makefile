@@ -37,9 +37,19 @@ code.o: code.c code.h globals.h
 cgen.o: cgen.c globals.h symtab.h code.h cgen.h
 	$(CC) $(CFLAGS) -c cgen.c
 
+cminus_flex: main.o globals.h util.o lex.yy.o
+	$(CC) $(CFLAGS) main.o util.o lex.yy.o -o cminus_flex
+
+lex.yy.o: cminus.l scan.h util.h globals.h
+	flex -o lex.yy.c cminus.l
+	$(CC) $(CFLAGS) -c lex.yy.c
+
 clean:
 	-rm tiny
 	-rm tm
+	-rm cminus_flex
+	-rm lex.yy.c
+	-rm lex.yy.o
 	-rm $(OBJS)
 
 tm: tm.c
