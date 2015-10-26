@@ -7,24 +7,18 @@
 
 CC = gcc
 
-CFLAGS = 
+CFLAGS = -Wall -g
 
-OBJS = main.o util.o scan.o parse.o symtab.o analyze.o code.o cgen.o
+OBJS = cminus.tab.o lex.yy.o main.o util.o symtab.o analyze.o code.o cgen.o
 
 cminus: $(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) -o cminus
 
-main.o: main.c globals.h util.h scan.h parse.h analyze.h cgen.h
+main.o: main.c globals.h util.h scan.h analyze.h cgen.h
 	$(CC) $(CFLAGS) -c main.c
 
 util.o: util.c util.h globals.h
 	$(CC) $(CFLAGS) -c util.c
-
-scan.o: scan.c scan.h util.h globals.h
-	$(CC) $(CFLAGS) -c scan.c
-
-parse.o: parse.c parse.h scan.h globals.h util.h
-	$(CC) $(CFLAGS) -c parse.c
 
 symtab.o: symtab.c symtab.h
 	$(CC) $(CFLAGS) -c symtab.c
@@ -38,23 +32,19 @@ code.o: code.c code.h globals.h
 cgen.o: cgen.c globals.h symtab.h code.h cgen.h
 	$(CC) $(CFLAGS) -c cgen.c
 
-cminus_flex: main.o globals.h util.o lex.yy.o
-	$(CC) $(CFLAGS) main.o util.o lex.yy.o -o cminus_flex
-
 lex.yy.o: cminus.l scan.h util.h globals.h
 	flex -o lex.yy.c cminus.l
 	$(CC) $(CFLAGS) -c lex.yy.c
 
+cminus.tab.o: cminus.y globals.h
+	bison -d cminus.y
+	$(CC) $(CFLAGS) -c cminus.tab.c
+
 clean:
 	-rm cminus
-	-rm tm
-	-rm cminus_flex
+	-rm cminus.tab.c
+	-rm cminus.tab.h
 	-rm lex.yy.c
-	-rm lex.yy.o
 	-rm $(OBJS)
 
-tm: tm.c
-	$(CC) $(CFLAGS) tm.c -o tm
-
-all: cminus cminus_flex tm
-
+all: cminus
