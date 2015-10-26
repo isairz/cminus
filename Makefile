@@ -47,4 +47,7 @@ clean:
 	-rm lex.yy.c
 	-rm $(OBJS)
 
+test: cminus
+	-./cminus test.cm
+
 all: cminus
