@@ -328,3 +328,177 @@ TINY COMPILATION: test.cm
 ### Review
 tiny의 소스가 미니멀하게 잘 짜져 있어서 과제는 별다른 어려움 없이 수행 할 수 있었다.
 이번 과제의 아쉬운 점 이라면 기껏 새로운 컴파일러를 제작하는데 C의 Subset인 언어를 만든다는 점이다. 이 언어는 아무리 잘 만들어봐야 C의 하위 호환이고 별다른 쓸모가 없어 보인다. 차라리 DSL(Domain-Specific Language)를 하나 정의하여 직접 구현해 보거나 문법이 간단하면서도 First-Class Function을 지원하는 JavaScript를 직접 구현해보면 더 재밌고 보람찬 과제가 되지 않았을까 한다.
+
+
+## Project 2 - Parser
+### Overview
+ - Flex를 이용하여 구현한 C-Minus Scanner를 이용
+ - Yacc (bison)를 사용하여 얻은 소스 코드를 합하여 Parser를 구현한다.
+
+### How to use
+```
+$ make cminus
+$ ./cminus test.cm
+```
+```
+$ make test
+```
+
+### BNF Grammer for C Minus
+
+### 구현 과정
+#### main.c
+Parser 처리를 위해 상수들을 수정하였다.
+bison을 사용 하기 위해 Global 변수들을 수정하였다.
+```c
+#define NO_PARSE FALSE
+int EchoSource = TRUE;
+int TraceScan = FALSE;
+int TraceParse = TRUE;
+```
+
+	
+#### globals.h
+yacc/globals.h 파일을 복사하여 수정하였다. 토큰들의 정의를 받아오기 위해 bison에서 생성되는 y.tab.h를 include 하였다.
+
+#### Makefile
+bison을 사용해 y.tab.c를 자동으로 생성하고 컴파일 하기 위해 Makefile을 수정하였다.
+```
+# yacc에서 token들을 정의하기 때문에 가장 먼저 컴파일 되어야 한다.
+# 컴파일 에러를 막기 위해, analyze.o, cgen.o를 컴파일 하지 않는다.
+OBJS = y.tab.o lex.yy.o main.o util.o symtab.o
+
+y.tab.o: cminus.y globals.h
+	bison -d cminus.y --yacc
+	$(CC) $(CFLAGS) -c y.tab.c
+```	
+#### util.c & util.h
+BNF에서 Decl, Param, Type Node가 추가되었으므로 이를 생성하는 함수를 만든다.
+
+또한 생성된 parse tree를 출력 할 수 있도록 printTree를 수정하였다.
+
+
+#### cminus.y
+yacc/tiny.y 파일을 복사하여 수정하였다.
+대부분의 문법들은 tiny와 크게 다르지 않아 수정하는게 별 문제가 없었으나, ID(변수명이나 함수명)을 가져와야 하는 경우 ID를 가져오기 위해 별도의 처리가 필요하였다. 마지막 토큰만 저장하므로, 뒤의 토큰을 처리해 버리면 token이 날아가버려 identifier를 읽을 수 없는 것이다.
+```bison
+saveName    : ID
+                 { savedName = copyString(tokenString);
+                   savedLineNo = lineno;
+                 }
+                 
+saveNumber  : NUM
+                 { savedNumber = atoi(tokenString);
+                   savedLineNo = lineno;
+                 }
+```
+위 두 문법을 추가로 정의하여, ID와 NUM을 사용 하는 곳을 대체하여 사용하였다.
+
+```bison
+var_decl    : type_spec saveName SEMI
+                 { $$ = newDeclNode(VarK);
+                   $$->child[0] = $1; /* type */
+                   $$->lineno = lineno;
+                   $$->attr.name = savedName;
+                   
+```
+
+saveName을 이용해 ID를 별도로 저장해두었다고 해도 저장하는 변수가 global variable이다 보니 덮어써지는 문제가 발생하기 때문에 saveName이후 또 saveName을 사용 할 경우 문제가 발생하였다. saveName에 stack을 사용한다면 하나씩 가져오는 것도 가능 하겠다고 생각하였지만, 굳이 stack을 사용하지 않아도 해결 가능한 문제였기에 사용하지 않았다. saveName을 이용하더라도 바로 파싱 결과를 저장하도록 변경하여, savedName이 덮어써지는 경우를 방지하였다. 아래 예제의 경우 saveName 바로 뒤에서 name을 저장하지 않는다면 args안에서 savedName을 덮어쓰기 된다.
+```bison
+call        : saveName {
+                 $$ = newExpNode(CallK);
+                 $$->attr.name = savedName;
+              }
+              LPAREN args RPAREN
+                 { $$ = $2;
+                   $$->child[0] = $4;
+                 }
+```
+
+bison 버전의 문제인지 yylex function의 선언을 찾지 못해 컴파일 에러가 발생, cminus.y 의 상단에 yylex을 선언해주었다.
+``` c 
+static int yylex(void);
+```
+
+
+### Results
+
+#### 1. test.cm
+```
+./cminus test.cm
+
+TINY COMPILATION: test.cm
+
+Syntax tree:
+  Function Dec: gcd
+    Type: int
+    Parameter: u
+      Type: int
+    Parameter: v
+      Type: int
+    Compound Statment
+      If
+        Op: ==
+          Id: v
+          Const: 0
+        Return
+          Id: u
+        Return
+          Call(followings are args) : gcd
+            Id: v
+            Op: -
+              Id: u
+              Op: *
+                Op: /
+                  Id: u
+                  Id: v
+                Id: v
+  Function Dec: main
+    Type: void
+    Compound Statment
+      Var Dec: x
+        Type: int
+      Var Dec: y
+        Type: int
+      Assign
+        Id: x
+        Call(followings are args) : input
+      Assign
+        Id: y
+        Call(followings are args) : input
+      Call(followings are args) : output
+        Call(followings are args) : gcd
+          Id: x
+          Id: y
+```
+과제 명세의 예제와 결과가 조금 다르지만, 파싱 이 정상적으로 일어났음을 확인 할 수 있다.
+
+예제와 다른 곳은 선언에서의 Type부분인데, type은 cminus에서 void와 int만 선언하여서 그렇지 실제 C에선 const, static 등의 접두사가 붙을 수도 있기 때문에 확장성을 위해 함수 선언과 변수 선언해서 type을 child로 가지도록 하였다.
+
+
+#### 2. Array Test
+BNF상에 array가 존재하는데, test.cm에서 array를 테스트 히지 못해 추가적인 테스트를 수행하였다.
+```c
+int aaa[1234];
+int function (int a,int b, int c[], int d) { }
+```
+
+```
+Syntax tree:
+  Var Dec(following const:array length): aaa 1234
+    Type: int
+  Function Dec: function
+    Type: int
+    Parameter: a
+      Type: int
+    Parameter: b
+      Type: int
+    Array Parameter: c
+      Type: int
+    Parameter: d
+      Type: int
+    Compound Statment
+```
+
+### Reviews
+parse.c를 직접 작성하는 것이 쉽다고 이야기를 들었으나, 추후 직접 다른 언어를 만들어 볼때를 대비하여 yacc를 익혀두는 것이 좋을 것 같아 yacc를 이용하여 작성하였다. bison이 BNF로 문법만 정의하면 알아서 c code의 parser를 생성해주는 매우 High 한 수준인지 알았는데, BNF작성으로 끝나는 것이 아니라 tree의 내용들을 저장해 주는 과정도 필요하다는 것에 놀랬다. 하지만 편리한 도구임이 분명하며, bison을 사용해 보았다는 것 자체가 이번 과제를 통해 얻은 가장 큰 경험인 것 같다.
