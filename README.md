@@ -9,6 +9,7 @@
 ### Requirment
  - GCC
  - FLEX
+ - BISON
 
 ## Project 1 - Scanner
 ### Overview
