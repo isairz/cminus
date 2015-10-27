@@ -27,7 +27,7 @@
 #ifndef YYPARSER
 
 /* the name of the following file may change */
-#include "cminus.tab.h"
+#include "y.tab.h"
 
 /* ENDFILE is implicitly defined by Yacc/Bison,
  * and not included in the tab.h file

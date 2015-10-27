@@ -17,6 +17,7 @@ static char * savedName; /* for use in assignments */
 static int savedNumber;
 static int savedLineNo;  /* ditto */
 static TreeNode * savedTree; /* stores syntax tree for later return */
+static int yylex(void);
 
 %}
 
@@ -32,7 +33,7 @@ static TreeNode * savedTree; /* stores syntax tree for later return */
 
 %% /* Grammar for TINY */
 program     : decl_list
-                 { savedTree = $1;} 
+                 { savedTree = $1;}
             ;
 decl_list   : decl_list decl
                  { YYSTYPE t = $1;
@@ -64,9 +65,7 @@ var_decl    : type_spec saveName SEMI
                    $$->lineno = lineno;
                    $$->attr.name = savedName;
                  }
-            | type_spec saveName
-              LBRACK saveNumber
-              RBRACK SEMI
+            | type_spec saveName LBRACK saveNumber RBRACK SEMI
                  { $$ = newDeclNode(ArrVarK);
                    $$->child[0] = $1; /* type */
                    $$->lineno = lineno;
@@ -75,25 +74,32 @@ var_decl    : type_spec saveName SEMI
                  }
             ;
 type_spec   : INT
-                 { $$ = newTypeNode(BasicK);
+                 { $$ = newTypeNode(TypeNameK);
                    $$->attr.type = INT;
                  }
             | VOID
-                 { $$ = newTypeNode(BasicK);
+                 { $$ = newTypeNode(TypeNameK);
                    $$->attr.type = VOID;
                  }
             ;
-fun_decl    : type_spec saveName LPAREN params RPAREN comp_stmt
-                 { $$ = newDeclNode(FuncK);
+fun_decl    : type_spec saveName {
+                   $$ = newDeclNode(FuncK);
                    $$->lineno = lineno;
                    $$->attr.name = savedName;
+                 }
+              LPAREN params RPAREN comp_stmt
+                 {
+                   $$ = $3;
                    $$->child[0] = $1; /* type */
-                   $$->child[1] = $4;    /* parameters */
-                   $$->child[2] = $6; /* body */
+                   $$->child[1] = $5;    /* parameters */
+                   $$->child[2] = $7; /* body */
                  }
             ;
 params      : param_list  { $$ = $1; }
-            | VOID        { $$ = NULL; };
+            | VOID
+                 { $$ = newTypeNode(TypeNameK);
+                   $$->attr.type = VOID;
+                 }
 param_list  : param_list COMMA param
                  { YYSTYPE t = $1;
                    if (t != NULL)
@@ -104,16 +110,16 @@ param_list  : param_list COMMA param
                      else $$ = $3; 
                  }
             | param { $$ = $1; };
-param       : type_spec ID saveName
+param       : type_spec saveName
                  { $$ = newParamNode(NonArrParamK);
-                   $$->child[0] = $1;                       /* type */
-                   $$->attr.name = savedName; /* ID */
+                   $$->child[0] = $1;
+                   $$->attr.name = savedName;
                  }
-            | type_spec ID saveName
+            | type_spec saveName
               LBRACK RBRACK
                  { $$ = newParamNode(ArrParamK);
-                   $$->child[0] = $1;                       /* type */
-                   $$->attr.name = savedName; /* ID */
+                   $$->child[0] = $1;
+                   $$->attr.name = savedName;
                  }
             ;
 comp_stmt   : LBRACE local_decls stmt_list RBRACE
@@ -154,13 +160,13 @@ exp_stmt    : exp SEMI { $$ = $1; }
             | SEMI { $$ = NULL; }
             ;
 sel_stmt    : IF LPAREN exp RPAREN stmt
-                 { $$ = newStmtNode(SelectK);
+                 { $$ = newStmtNode(IfK);
                    $$->child[0] = $3;
                    $$->child[1] = $5;
                    $$->child[2] = NULL;
                  }
             | IF LPAREN exp RPAREN stmt ELSE stmt
-                 { $$ = newStmtNode(SelectK);
+                 { $$ = newStmtNode(IfK);
                    $$->child[0] = $3;
                    $$->child[1] = $5;
                    $$->child[2] = $7;
@@ -188,17 +194,16 @@ exp         : var ASSIGN exp
                  }
             | simple_exp { $$ = $1; }
             ;
-var         : ID saveName
+var         : saveName
                  { $$ = newExpNode(IdK);
                    $$->attr.name = savedName;
                  }
-            | ID saveName
+            | saveName
                  { $$ = newExpNode(ArrIdK);
                    $$->attr.name = savedName;
                  }
               LBRACK exp RBRACK
-                 { $$ = $3;
-                   $$->child[0] = exp;
+                 { $$->child[0] = $3;
                  }
             ;
 simple_exp  : add_exp LTEQ add_exp
@@ -275,10 +280,13 @@ factor      : LPAREN exp RPAREN { $$ = $2; }
                    $$->attr.val = atoi(tokenString);
                  }
             ;
-call        : saveName LPAREN args RPAREN
-                 { $$ = newExpNode(CallK);
-                   $$->attr.name = savedName;
-                   $$->child[0] = $3;
+call        : saveName {
+                 $$ = newExpNode(CallK);
+                 $$->attr.name = savedName;
+              }
+              LPAREN args RPAREN
+                 { $$ = $2;
+                   $$->child[0] = $4;
                  }
             ;
 args        : arg_list { $$ = $1; }
@@ -309,11 +317,11 @@ int yyerror(char * message)
 /* yylex calls getToken to make Yacc/Bison output
  * compatible with ealier versions of the TINY scanner
  */
-int yylex(void)
+static int yylex(void)
 { return getToken(); }
 
 TreeNode * parse(void)
-{ // yyparse();
+{ yyparse();
   return savedTree;
 }
 
