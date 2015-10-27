@@ -63,11 +63,11 @@ extern int lineno; /* source line number for listing */
 /**************************************************/
 
 typedef enum {StmtK,ExpK,DeclK,ParamK,TypeK} NodeKind;
-typedef enum {CompK,SelectK,IterK,RetK,IfK,ReadK,WriteK,RepeatK} StmtKind;
+typedef enum {CompK,IfK,IterK,RetK} StmtKind;
 typedef enum {AssignK,OpK,ConstK,IdK,ArrIdK,CallK} ExpKind;
 typedef enum {FuncK,VarK,ArrVarK} DeclKind;
 typedef enum {ArrParamK,NonArrParamK} ParamKind;
-typedef enum {BasicK} TypeKind;
+typedef enum {TypeNameK} TypeKind;
 
 /* ArrayAttr is used for attributes for array variables */
 typedef struct arrayAttr {
