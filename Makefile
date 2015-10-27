@@ -9,7 +9,8 @@ CC = gcc
 
 CFLAGS = -Wall -g
 
-OBJS = y.tab.o lex.yy.o main.o util.o symtab.o analyze.o code.o cgen.o
+#OBJS = y.tab.o lex.yy.o main.o util.o symtab.o analyze.o code.o cgen.o
+OBJS = y.tab.o lex.yy.o main.o util.o symtab.o
 
 cminus: $(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) -o cminus
