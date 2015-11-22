@@ -503,3 +503,176 @@ Syntax tree:
 
 ### Reviews
 parse.c를 직접 작성하는 것이 쉽다고 이야기를 들었으나, 추후 직접 다른 언어를 만들어 볼때를 대비하여 yacc를 익혀두는 것이 좋을 것 같아 yacc를 이용하여 작성하였다. bison이 BNF로 문법만 정의하면 알아서 c code의 parser를 생성해주는 매우 High 한 수준인지 알았는데, BNF작성으로 끝나는 것이 아니라 tree의 내용들을 저장해 주는 과정도 필요하다는 것에 놀랬다. 하지만 편리한 도구임이 분명하며, bison을 사용해 보았다는 것 자체가 이번 과제를 통해 얻은 가장 큰 경험인 것 같다.
+
+
+## Project 3 - Semantic Analysis
+### Overview
+- C-Minus의 Symbol Table 구현
+- C-Minus의 Type Checker 구현
+
+### How to use
+```
+$ make cminus
+$ ./cminus test.cm
+```
+```
+$ make cminus_flex
+$ ./cminus_flex test.cm
+```
+
+### Scope
+- Compound Statement별 Scope 적용
+- 선언되지 않은 변수가 사용되면 에러
+- 기본함수는 항상 포함하고 있어야 함
+  - int input(), void output(int arg)
+
+### Type Checker
+– void는 함수에서만 사용 가능
+– return type 확인
+– Assign할 때 두 피연산자(operand)의 타입 일치 확인
+– Function Call 할 때 argument 수 확인
+- If나 While의 Expression이 값을 가지는지 확인
+- 그 외 다른 여러 가지를 C-Minus 문법을 참조하여 확인
+
+### 구현과정
+#### main.c
+Semantic Analysis를 수행하기 위해 main.c의 옵션을 수정하였다.
+```
+#define NO_ANALYZE FALSE
+int TraceParse = FALSE;
+int TraceAnalyze = TRUE;
+```
+
+#### symtab.c & symtab.h
+BucketList를 Wrapping 하는 **Scope** 구조체를 생성합니다.
+```
+typedef struct ScopeRec
+   { char * funcName;
+     int nestedLevel;
+     struct ScopeRec * parent;
+     BucketList hashTable[SIZE]; /* the hash table */
+   } * Scope;
+```
+
+Static Scope를 구현하기 위해 Scope를 Stack 형태로 관리 하는 Function들을 추가합니다.
+```
+Scope sc_top( void );
+void sc_pop( void );
+void sc_push( Scope scope );
+```
+Analyze를 돕기 위한 함수를 추가합니다.
+
+#### analyze.c & analyze.h
+Compound State를 추가 할 때 마다 새로운 Scope를 만들어 Stack에 Push 합니다. Scopmpound State를 빠져나갈때 Stack을 Pop 합니다.
+이 때, Function의 경우 argument들과 Declaration의 Scope가 같도록 주의합니다.
+
+새로운 선언이 있을 때는 *현재의 Scope*와 검사하여 중복이 있는지를 확인, 중복이 있으면 에러를 발생시킵니다.
+
+변수를 사용할 경우 Scope의 Stack을 가까운 순서대로 검색하여 변수가 있는지 확인하고, 없으면 에러를 발생시킵니다.
+
+Input, Output Function을 추가합니다. line number는 -1로 설정하였습니다.
+
+명세에 주어진대로 Type들을 채크합니다.
+
+### 수행결과
+#### test.cm
+```
+./cminus test.cm
+
+TINY COMPILATION: test.cm
+
+Building Symbol Table...
+
+Symbol table:
+
+<global scope> (nested level: 0)
+Symbol Name    Sym.Type  Data Type    Line Numbers
+-------------  --------  -----------  ------------
+main           Function  Void           11
+input          Function  Integer        -1   14   14
+output         Function  Void           -1   15
+gcd            Function  Integer         4    7   15
+
+function name: gcd (nested level: 1)
+Symbol Name    Sym.Type  Data Type    Line Numbers
+-------------  --------  -----------  ------------
+u              Variable  Integer         4    6    7    7
+v              Variable  Integer         4    6    7    7    7
+
+function name: main (nested level: 1)
+Symbol Name    Sym.Type  Data Type    Line Numbers
+-------------  --------  -----------  ------------
+x              Variable  Integer        13   14   15
+y              Variable  Integer        13   14   15
+
+
+Checking Types...
+
+
+Type Checking Finished
+```
+
+#### Nested Scope
+if compound 안의 scope와 function의 scope가 달라짐을 확인
+```
+int scope (int a) {
+  if (a==1){
+    int a;
+    output(a);
+  }
+}
+```
+```
+./cminus scope.cm
+
+TINY COMPILATION: scope.cm
+
+Building Symbol Table...
+
+Symbol table:
+
+<global scope> (nested level: 0)
+Symbol Name    Sym.Type  Data Type    Line Numbers
+-------------  --------  -----------  ------------
+scope          Function  Integer         1
+input          Function  Integer        -1
+output         Function  Void           -1    4
+
+function name: scope (nested level: 1)
+Symbol Name    Sym.Type  Data Type    Line Numbers
+-------------  --------  -----------  ------------
+a              Variable  Integer         1    2
+
+function name: scope (nested level: 2)
+Symbol Name    Sym.Type  Data Type    Line Numbers
+-------------  --------  -----------  ------------
+a              Variable  Integer         3    4
+
+
+Checking Types...
+
+Type Checking Finished
+```
+
+#### void 타입의 변수
+```
+void a;
+```
+```
+Symbol error at line 1: variable should have non-void type
+(Table 생략)
+```
+
+### return type
+```
+void func(void) {
+  return 1;
+}
+```
+```
+(Table 생략)
+Type error at line 2: expected no return value
+```
+
+### Reviuew
+저번 과제인 Syntax Analysis까지는 프로그래밍 언어론에서도 구현 해보았던 내용이었지만, Semantic Analysis를 실제로 구현해 보는 것은 처음이라 시행착오가 많았다. scope는 stack구조로만 바꿔주기만 하면 되서 큰 어려움이 없었지만 type check의 경우 flex, bison 과 같은 외부 툴의 도움도 받을 수 없이 바로 c의 switch case로 구현 하려니 여러가지 경우의 수를 생각하여야 해서 혼란스러웠다. 문법에러가 연속으로 발생 할 경우 생각치 못한 예외로 Segfault가 발생하기도 하는 등 고려할 사항이 많았다. 에러 처리를 잘 해주는 현대의 컴파일러 제작자들에게 감사하며 과제를 마무리 합니다.
