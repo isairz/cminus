@@ -77,9 +77,11 @@ typedef struct arrayAttr {
 } ArrayAttr;
 
 /* ExpType is used for type checking */
-typedef enum {Void,Integer,Boolean} ExpType;
+typedef enum {Void,Integer,Boolean, IntegerArray} ExpType;
 
 #define MAXCHILDREN 3
+
+struct ScopeRec;
 
 typedef struct treeNode
    { struct treeNode * child[MAXCHILDREN];
@@ -95,7 +97,8 @@ typedef struct treeNode
              TokenType type;
              int val;
              char * name;
-             ArrayAttr arr; } attr;
+             ArrayAttr arr;
+             struct ScopeRec * scope; } attr;
      ExpType type; /* for type checking of exps */
    } TreeNode;
 
