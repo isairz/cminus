@@ -358,7 +358,7 @@ int TraceScan = FALSE;
 int TraceParse = TRUE;
 ```
 
-	
+
 #### globals.h
 yacc/globals.h 파일을 복사하여 수정하였다. 토큰들의 정의를 받아오기 위해 bison에서 생성되는 y.tab.h를 include 하였다.
 
@@ -372,7 +372,7 @@ OBJS = y.tab.o lex.yy.o main.o util.o symtab.o
 y.tab.o: cminus.y globals.h
 	bison -d cminus.y --yacc
 	$(CC) $(CFLAGS) -c y.tab.c
-```	
+```
 #### util.c & util.h
 BNF에서 Decl, Param, Type Node가 추가되었으므로 이를 생성하는 함수를 만든다.
 
@@ -387,7 +387,7 @@ saveName    : ID
                  { savedName = copyString(tokenString);
                    savedLineNo = lineno;
                  }
-                 
+
 saveNumber  : NUM
                  { savedNumber = atoi(tokenString);
                    savedLineNo = lineno;
@@ -401,7 +401,7 @@ var_decl    : type_spec saveName SEMI
                    $$->child[0] = $1; /* type */
                    $$->lineno = lineno;
                    $$->attr.name = savedName;
-                   
+
 ```
 
 saveName을 이용해 ID를 별도로 저장해두었다고 해도 저장하는 변수가 global variable이다 보니 덮어써지는 문제가 발생하기 때문에 saveName이후 또 saveName을 사용 할 경우 문제가 발생하였다. saveName에 stack을 사용한다면 하나씩 가져오는 것도 가능 하겠다고 생각하였지만, 굳이 stack을 사용하지 않아도 해결 가능한 문제였기에 사용하지 않았다. saveName을 이용하더라도 바로 파싱 결과를 저장하도록 변경하여, savedName이 덮어써지는 경우를 방지하였다. 아래 예제의 경우 saveName 바로 뒤에서 name을 저장하지 않는다면 args안에서 savedName을 덮어쓰기 된다.
@@ -417,7 +417,7 @@ call        : saveName {
 ```
 
 bison 버전의 문제인지 yylex function의 선언을 찾지 못해 컴파일 에러가 발생, cminus.y 의 상단에 yylex을 선언해주었다.
-``` c 
+``` c
 static int yylex(void);
 ```
 
@@ -676,3 +676,131 @@ Type error at line 2: expected no return value
 
 ### Reviuew
 저번 과제인 Syntax Analysis까지는 프로그래밍 언어론에서도 구현 해보았던 내용이었지만, Semantic Analysis를 실제로 구현해 보는 것은 처음이라 시행착오가 많았다. scope는 stack구조로만 바꿔주기만 하면 되서 큰 어려움이 없었지만 type check의 경우 flex, bison 과 같은 외부 툴의 도움도 받을 수 없이 바로 c의 switch case로 구현 하려니 여러가지 경우의 수를 생각하여야 해서 혼란스러웠다. 문법에러가 연속으로 발생 할 경우 생각치 못한 예외로 Segfault가 발생하기도 하는 등 고려할 사항이 많았다. 에러 처리를 잘 해주는 현대의 컴파일러 제작자들에게 감사하며 과제를 마무리 합니다.
+
+
+## Project 4 - Code Generation
+### Overview
+- 기존과제를 토대로 하여 Tiny Machine에서 동작하는 Code 생성
+
+### How to use
+```
+$ make cminus
+$ ./cminus test.cm
+```
+
+### Tiny Instruction
+(그림)
+
+### Stack 기반의 메모리 환경을 가진다.
+- Function Call이 일어나면 local variable, parameters, return address, function address가 차례로 쌓인다.
+- 즉, function pointer를 fp라고 할 때
+  - fp-1 : return address
+  - fp-2 : 1st parameter
+  - fp-3 : 2nd parameter
+  - ...
+  - fp-n : last parameter
+  - fp-n-1 : 1st local variable
+  - fp-n-2 : 2nd local variable
+  - ...
+
+### 구현과정
+#### main.c
+Code Generation을 수행하기 위해 flag를 수정
+```
+#define NO_CODE FALSE
+int TraceAnalyze = FALSE;
+int TraceCode = TRUE;
+```
+#### analyze.c & symtab.c & symtab.h
+지난 과제에서는 location을 scope의 깊이로 정의하였었지만, 이번에는 scope내의 변수의 위치로 변경하였다. function pointer를 fp라고 할 때 fp-2-loc에 변수가 저장되게 된다.
+
+#### code.c & code.h
+수정 없음
+
+#### cgen.c
+syntaxTree를 순회하며 코드를 생성합니다.
+각 tree의 타입별로 genStmt, genExp, genDecl, genParam 이라는 함수를 각각 생성합니다.
+
+##### genStmt
+- If, While : tiny의 코드를 그대로 사용
+- Compound : Scope를 추가해 줌
+- Return : return address(fp-1)로 expression 값을 내보냄
+
+##### getExp
+- OP, Const : tiny의 코드를 그대로 사용
+- Id : Scope를 고려하여 변수의 주소 값을 계산
+- Assign : lhs(lvalue)는 주소를 가져오고, rhs(rvalue)는 값을 가져오도록 구현
+- Call : 함수콜이 일어날때 Call Stack에 파라메터, return value가 쌓이는 순서에 주의하여 구현
+
+##### getDecl & getParam
+- Func, Var, ArrVar : 이전단계에서 타입과 스코프는 검사하였으므로 할당될 메모리 크기만 계산한다. c-minus에서는 모든 변수타입이 1의 크기를 가지도록 설정하였다. Array의 경우 Array의 크기만큼 할당
+
+##### getMainCall
+syntaxTree를 돌아 code를 생성한 후, main를 호출하는 코드를 생성
+
+### 수행결과
+#### test.cm (전체 코드는 소스파일과 함께 첨부 되어 있음)
+```
+/* A Program to perform Euclid`s
+   Algorithm to computer gcd */
+
+int gcd (int u, int v)
+{
+    if (v == 0) return u;
+    else return gcd(v,u-u/v*v);
+    /* u-u/v*v == u mod v */
+}
+
+void main(void)
+{
+    int x; int y;
+    x = input(); y = input();
+    output(gcd(x,y));
+}
+```
+```
+* TINY Compilation to TM Code
+* File: test.tm
+* Standard prelude:
+  0:     LD  5,0(0) 	load gp with maxaddress
+  1:    LDA  6,0(5) 	copy gp to mp
+  2:     ST  0,0(0) 	clear location 0
+* End of standard prelude.
+* -> Function (gcd)
+  4:     ST  1,-2(5) 	func: store the location of func. entry
+* func: unconditional jump to next declaration belongs here
+* func: function body starts here
+  3:    LDC  1,6(0) 	func: load function location
+  6:     ST  0,-1(6) 	func: store return address
+* -> param
+* u
+* <- param
+* -> param
+* v
+* <- param
+* -> compound
+* -> if
+* -> Op
+* -> Id (v)
+  7:    LDC  0,-3(0) 	id: load varOffset
+  8:    ADD  0,6,0 	id: calculate the address
+  9:     LD  0,0(0) 	load id value
+* <- Id
+ 10:     ST  0,-4(6) 	op: push left
+* -> Const
+ 11:    LDC  0,0(0) 	load const
+* <- Const
+ 12:     LD  1,-4(6) 	op: load left
+ 13:    SUB  0,1,0 	op ==
+ 14:    JEQ  0,2(7) 	br if true
+ 15:    LDC  0,0(0) 	false case
+ 16:    LDA  7,1(7) 	unconditional jmp
+ 17:    LDC  0,1(0) 	true case
+...
+```
+함수들과 파라메터들이 잘 정의되어 호출되고, 변수들의 메모리 주소도 제대로 계산 됨을 확인 할 수 있다.
+
+### Reviuew
+드디어 컴파일러의 마지막 과제가 끝났습니다. 머신코드나 LLVM 레벨까지 컴파일이 되어서 직접 실행 시킬 수 있을지 알았는데, tiny machine 용으로만 컴파일이 되어 조금 아쉽습니다만 컴파일된 언어가 어쎔블리어에 가깝기에 어쎔으로의 컴파일을 경험해 볼 수 있었습니다. 장기간 진행된 프로젝트임에도 불구하고 아쉽게도 실용적인 언어가 아니라서 이 프로젝트를 다른 곳에서 쓸 수는 없겠지만 한 학기동안 프로젝트를 진행하면서 실제로 프로그래밍 언어가 어떠한 과정을 거쳐서 분석되는지를 이해할 수 있었다. 특히 마지막 과제에서 프로그래밍 언어를 레지스터리 명령단위까지 컴파일을 해보면서, c언어에서 작성된 코드 특히 함수 호출이 실제로 컴퓨터내에서 어떠한 연산을 수행하는지 다시 한번 익힐 수 있었다.
+
+시험기간이라 시간에 쫒기며 마무리 하게 되었는데, 그래도 잘 마무리 된 것 같아서 다행입니다. 한학기 동안 교수님과 조교님 수고하셨습니다.

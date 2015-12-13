@@ -36,6 +36,7 @@ static Scope scopes[MAX_SCOPE];
 static int nScope = 0;
 static Scope scopeStack[MAX_SCOPE];
 static int nScopeStack = 0;
+static int location[MAX_SCOPE];
 
 Scope sc_top( void )
 { return scopeStack[nScopeStack - 1];
@@ -47,8 +48,14 @@ void sc_pop( void )
   --nScopeStack;
 }
 
+int addLocation( void )
+{
+  return location[nScopeStack - 1]++;
+}
+
 void sc_push( Scope scope )
-{ scopeStack[nScopeStack++] = scope;
+{ scopeStack[nScopeStack] = scope;
+  location[nScopeStack++] = 0;
   //printf("push %s\n", scope->funcName);
 }
 
@@ -105,7 +112,7 @@ void st_insert( char * name, int lineno, int loc, TreeNode * treeNode )
   }
 } /* st_insert */
 
-/* Function st_lookup returns the memory 
+/* Function st_lookup returns the memory
  * location of a variable or -1 if not found
  */
 int st_lookup ( char * name )
@@ -114,17 +121,17 @@ int st_lookup ( char * name )
   return -1;
 }
 
-int st_exist_top (char * name)
+int st_lookup_top (char * name)
 { int h = hash(name);
   Scope sc = sc_top();
   while(sc) {
     BucketList l = sc->hashTable[h];
     while ((l != NULL) && (strcmp(name,l->name) != 0))
       l = l->next;
-    if (l != NULL) return TRUE;
+    if (l != NULL) return l->memloc;
     break;
   }
-  return FALSE;
+  return -1;
 }
 
 int st_add_lineno(char * name, int lineno)
@@ -146,7 +153,7 @@ void printSymTabRows(BucketList *hashTable, FILE *listing) {
 
       while (l != NULL)
       { LineList t = l->lines;
-        
+
         fprintf(listing,"%-14s ",l->name);
 
         switch (node->nodekind) {
@@ -199,7 +206,7 @@ void printSymTabRows(BucketList *hashTable, FILE *listing) {
         { fprintf(listing,"%4d ",t->lineno);
           t = t->next;
         }
-        
+
         fprintf(listing,"\n");
         l = l->next;
       }
@@ -207,8 +214,8 @@ void printSymTabRows(BucketList *hashTable, FILE *listing) {
   }
 }
 
-/* Procedure printSymTab prints a formatted 
- * listing of the symbol table contents 
+/* Procedure printSymTab prints a formatted
+ * listing of the symbol table contents
  * to the listing file
  */
 void printSymTab(FILE * listing)
@@ -237,4 +244,3 @@ void printSymTab(FILE * listing)
     fputc('\n', listing);
   }
 } /* printSymTab */
-
