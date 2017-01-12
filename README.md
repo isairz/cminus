@@ -1,5 +1,4 @@
 # C-Minus
-2015년 컴파일러 수업의 과제인 C-Minus 제작을 위한 프로젝트이다.
 [Tiny Compiler](http://www.cs.sjsu.edu/faculty/louden/cmptext/) 를 수정하여 C 문법의 Subset인  C-Minus를 직접 제작하여 본다.
 
 ### Tested Environment
