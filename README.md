@@ -1,4 +1,4 @@
-# C-Minus
+# C-Minus in chinese and english
 [Tiny Compiler](http://www.cs.sjsu.edu/faculty/louden/cmptext/) 를 수정하여 C 문법의 Subset인  C-Minus를 직접 제작하여 본다.
 
 ### Tested Environment
