@@ -286,7 +286,7 @@ static void checkNode(TreeNode * t)
               typeError(t,"expected no return value");
               //ValueReturned = TRUE;
             } else if (funcType == Integer &&
-                (expr == NULL || expr->type == Void)) {
+                (expr == NULL || expr->type != Integer)) {
               typeError(t,"expected return value");
             }
           }
